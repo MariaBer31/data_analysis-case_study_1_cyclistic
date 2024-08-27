@@ -1,7 +1,7 @@
 ---
 title: "How does a bike-share navigate speedy success?"
 author: "Mariia Berjoza"
-date: "2024-08-15"
+date: August 27, 2024
 output: html_document
 ---
 
@@ -15,16 +15,29 @@ library(tidyr)
 library(ggplot2)
 library(knitr)
 library(kableExtra)
+library(scales)
 ```
 
 #### Data Source
-The data used in this analysis is referring to [this resource]("https://divvy-tripdata.s3.amazonaws.com/index.html").
-Note: The datasets have a different name because Cyclistic is a fictional company. For the purposes of this case study, the datasets are appropriate and will enable you to answer the business questions. The data has been made available by
-Motivate International Inc. under [this license]("https://divvybikes.com/data-license-agreement") 
+The data used in this case-study is referring to [this resource]("https://divvy-tripdata.s3.amazonaws.com/index.html").
+The data has been made available by Motivate International Inc. under [this license]("https://divvybikes.com/data-license-agreement") 
+
+Note: The datasets have a different name. For the purposes of this case study I have been using a fictional company name (Cyclistic).
 
 ##### Files used:
 
-* 202407-divvy-tripdata.zip
+* 202407-divvy-tripdata.csv
+* 202406-divvy-tripdata.csv
+* 202405-divvy-tripdata.csv
+* 202404-divvy-tripdata.csv
+* 202403-divvy-tripdata.csv
+* 202402-divvy-tripdata.csv
+* 202401-divvy-tripdata.csv
+* 202312-divvy-tripdata.csv
+* 202311-divvy-tripdata.csv
+* 202310-divvy-tripdata.csv
+* 202309-divvy-tripdata.csv
+* 202308-divvy-tripdata.csv
 
 ## Client: Cyclistic
 
@@ -42,7 +55,7 @@ Cyclistic is making bike-share more inclusive to people with disabilities
 and riders who can’t use a standard two-wheeled bike. The majority of riders opt for traditional bikes; about 8% of riders use the assistive options. Cyclistic users are more likely to ride for leisure, but about 30% use the bikes to commute to work each day.
 
 In 2016, Cyclistic launched a successful bike-share offering. Since then, the program has grown to a fleet of 5,824 bicycles that are geotracked and locked into a network of 692 stations across Chicago. 
-The bikes can be unlocked from one station and returned to any other station
+*The bikes can be unlocked from one station and returned to any other station*
 in the system anytime.
 
 ### Marketing program
@@ -61,27 +74,72 @@ Rather than creating a marketing campaign that targets all-new customers, there 
 
 Let's put some statistics here for the last 12 months
 
+```{r reset data chunk, eval=FALSE, include=FALSE}
+rm(daily_activity)
+rm(longest_rides)
+rm(popular_start_stations)
+rm(top_trips_july_24)
+rm(seasonal_activity)
+rm(top_customer_12_months)
+rm(top_subscriber_12_months)
+rm(top_subscriber_trips_july_24)
+rm(top_customer_trips_july_24)
+rm(rides_12_months)
+rm(date_base)
+rm(trips_july_24)
+rm(seasonal_activity)
+rm(top_customer_12_months)
+rm(top_subscriber_12_months)
+rm(trips_august_23)
+rm(trips_september_23)
+rm(trips_october_23)
+rm(trips_november_23)
+rm(trips_december_23)
+rm(trips_january_24)
+rm(trips_february_24)
+rm(trips_march_24)
+rm(trips_april_24)
+rm(trips_may_24)
+rm(trips_june_24)
+rm(all_start_stations)
+rm(unpopular_start_stations)
+```
+
 ```{r import trips, include=FALSE}
-  trips_july_24 <- read_csv('202407-divvy-tripdata.csv')
+#Import data locally
+trips_july_24 <- read_csv('202407-divvy-tripdata.csv')
+trips_june_24 <- read_csv('202406-divvy-tripdata.csv')
+trips_may_24 <- read_csv('202405-divvy-tripdata.csv')
+trips_april_24 <- read_csv('202404-divvy-tripdata.csv')
+trips_march_24 <- read_csv('202403-divvy-tripdata.csv')
+trips_february_24 <- read_csv('202402-divvy-tripdata.csv')
+trips_january_24 <- read_csv('202401-divvy-tripdata.csv')
+trips_december_23 <- read_csv('202312-divvy-tripdata.csv')
+trips_november_23 <- read_csv('202311-divvy-tripdata.csv')
+trips_october_23 <- read_csv('202310-divvy-tripdata.csv')
+trips_september_23 <- read_csv('202309-divvy-tripdata.csv')
+trips_august_23 <- read_csv('202308-divvy-tripdata.csv')
 ```
 
+```{r combine data, include=FALSE}
+rides_12_months <- rbind(trips_august_23,
+                         trips_september_23,
+                         trips_october_23,
+                         trips_november_23,
+                         trips_december_23,
+                         trips_january_24,
+                         trips_february_24,
+                         trips_march_24,
+                         trips_april_24,
+                         trips_may_24,
+                         trips_june_24,
+                         trips_july_24)
 
-```{r create a custom columns, include=FALSE}
-trips_july_24 <- trips_july_24 %>%
-  mutate(
-         started_at = ymd_hms (started_at),
-         ended_at =ymd_hms (ended_at),
-         trip_duration = ended_at - started_at,
-         weekday = wday(started_at, label = TRUE),
-         start_day = as.Date(started_at)
-         )
 ```
 
-
-```{r data clean, include=FALSE}
+```{r data clean (empty or NA coords), include=FALSE}
 #remove all the trips where coordinates are NA
-
-trips_july_24 <- trips_july_24 %>%
+rides_12_months <- rides_12_months %>% 
   filter(
     !(trimws(start_lat) == "" | is.na(start_lat) |
         trimws(start_lng) == "" | is.na(start_lng) |
@@ -89,27 +147,75 @@ trips_july_24 <- trips_july_24 %>%
         trimws(end_lng) == "" | is.na(end_lng)
     )
   )
+```
 
-#remove all the trips where trip duration is less than 60 sec
+```{r round coords to consider the same area around 100m, include=FALSE}
+#Format to 3 decimal places
+#alternative option : 
+#formatC(start_lat, format = "f", digits = 3
 
-trips_july_24 <- trips_july_24 %>%
-  filter(!trip_duration<60)
+rides_12_months <- rides_12_months %>% 
+  mutate(
+    start_lat = round(start_lat, 3), 
+    end_lat = round(end_lat, 3), 
+    start_lng = round(start_lng, 3), 
+    end_lng = round(end_lng, 3) 
+  )
+```
 
-#I would rather clarify the trips where start and end station coordinates are same. In my city this is not acceptable. You can not take a bike and give it back at the same station after the trip. Here I see the big ranges of time, so I did not remove those trips.
+```{r create a custom columns, include=FALSE}
+
+rides_12_months <- rides_12_months %>% 
+  mutate(
+         started_at = ymd_hms (started_at),
+         ended_at =ymd_hms (ended_at),
+         trip_duration = ended_at - started_at,
+         start_day = as.Date(started_at)
+         )
+```
+
+```{r data clean trip duration less than 120 sec, include=FALSE}
+#remove all the trips where trip duration is less than 120 sec
+rides_12_months <- rides_12_months %>% 
+  filter(!trip_duration<120)
+
+```
+
+```{r data clean same station coords, include=FALSE}
+#As the bikes can be unlocked from one station and returned to any other station, we need to remove the data where start and end station coordinates are the same
+
+rides_12_months <- rides_12_months %>% 
+  filter(!(start_lat == end_lat & start_lng == end_lng))
   
 ```
 
-### Top-50 start stations (by total amount of rides)
+### How do annual members and casual riders use Cyclistic bikes differently?
 
-```{r create a top 50 start stations, include=FALSE}
-popular_start_stations <- trips_july_24 %>%
+To explore riders behavior, lets check top-100 stations where our riders usually prefer to start their trip.
+
+
+##### Top-100 start stations (by total amount of rides)
+
+Customers top places are represented in pink colour.
+Subscribers top are blue and black.
+Green areas are 50/50.
+Area size represents the total rides amount.
+
+```{r create stations summarizing table, include=FALSE}
+
+all_start_stations <- rides_12_months %>%
   group_by(station_cords = paste(start_lat,start_lng, sep = ":")) %>%
   summarise(
     total_subscriber = sum(member_casual == 'member'),
     total_customer = sum(member_casual == 'casual'),
-    total_taken = n()) %>%
+    total_taken = n())
+
+```
+
+```{r create a top 100 start stations, include=FALSE}
+popular_start_stations <- all_start_stations %>%
   arrange(desc(total_taken)) %>%
-  slice_head(n = 50)
+  slice_head(n = 100)
 ```
 
 ```{r add lat long by splitting start_lat_long, include=FALSE}
@@ -151,13 +257,14 @@ popular_start_stations <- popular_start_stations %>%
   ) 
 ```
 
-```{r draw top 50 start stations on the map, echo=FALSE}
+
+```{r draw top 100 start stations on the map, echo=FALSE}
 
 #load map
 leaflet(data = popular_start_stations) %>% 
   addTiles() %>% 
   addCircleMarkers(~start_lng, ~start_lat, 
-                   radius = ~total_taken/500, 
+                   radius = ~total_taken/2000, 
                    color = ~color,
                    fillOpacity = 0.7,
                    label = ~paste("Customers:", total_customer, "VS",
@@ -167,14 +274,31 @@ leaflet(data = popular_start_stations) %>%
             labels = c(">80% Customers", "70-80% Customers", "55-70% Customers", "45-55% Customers", "35-45% Customers", "25-35% Customers", "10-25% Customers", "less than 10% Customers"),
             title = "Station Popularity")
 ```
-We can see that piers and lakefronts stations are the most attractive for the customers. Navy Pier Terminal is a Tourists attraction place. If the subscription program is limited only to Chicago, those customers have no option to subscribe for a longer time.
-Closer to center the percentage of customers and subscribers becomes 50/50. 
-And at the Near West Side we see mainly subscribers.
 
-### Top-10 routes
+#### Key insights
 
-```{r create a list of top 50 routes, include=FALSE}
-top_trips_july_24 <- trips_july_24 %>%
+
+##### Popular Locations for Casual Riders - Piers and Lakefronts 
+
+Near East Side, Grant Park, Museum Campus, South Loop: those locations represent some of the most scenic and culturally rich areas of Chicago, all situated along the lakefront or very close to it.
+
+
+##### Mixed-Use Areas: Lincoln Park
+
+Lincoln Park is one of Chicago's most well-known and affluent neighborhoods. It’s characterized by historic homes, tree-lined streets, and a vibrant community with plenty of cultural and recreational amenities.
+This is a balanced area (50% customers /50% subscribers).
+
+
+##### Subscribers top: Bridgeport, Business Districts, Workplaces, Residential Neighborhoods
+
+Many of these coordinates are located in or near The Loop and West Loop areas, which are major business districts in Chicago. These areas are densely packed with offices, corporate headquarters, and other workplaces.
+These are vibrant, well-established residential neighborhoods that are close to downtown but also maintain a residential character. Bridgeport is a mix of residential and cultural spots with a strong local community vibe.
+
+Below we can see top routes 
+
+```{r create subscribers top 10 routes, include=FALSE}
+#top_subscriber_trips_july_24 <- trips_july_24 %>%
+top_subscriber_12_months <- rides_12_months %>%
   group_by(trip_coords = 
              paste (
                paste(start_lat,start_lng, sep = ":"),
@@ -184,12 +308,29 @@ top_trips_july_24 <- trips_july_24 %>%
   summarise(total_subscriber = sum(member_casual == 'member'),
             total_customer = sum(member_casual == 'casual'),
             total_trips = n()) %>%
-  arrange(desc(total_trips)) %>%
+  arrange(desc(total_subscriber)) %>%
   slice_head(n = 10)
 ```
 
-```{r add lat long data in top directions, include=FALSE}
-top_trips_july_24 <- top_trips_july_24 %>%
+```{r create customers top 10 routes, include=FALSE}
+#top_customer_trips_july_24 <- trips_july_24 %>%
+top_customer_12_months <- rides_12_months %>%
+  group_by(trip_coords = 
+             paste (
+               paste(start_lat,start_lng, sep = ":"),
+               paste(end_lat, end_lng, sep = ":"),
+               sep = ";"
+               )) %>% 
+  summarise(total_subscriber = sum(member_casual == 'member'),
+            total_customer = sum(member_casual == 'casual'),
+            total_trips = n()) %>%
+  arrange(desc(total_customer)) %>%
+  slice_head(n = 10)
+```
+
+```{r add lat long data in top customer directions, include=FALSE}
+#top_customer_trips_july_24 <- top_customer_trips_july_24 %>%
+top_customer_12_months <- top_customer_12_months %>% 
   # Create new columns for start and end coordinates
   mutate(
     start_coord = strsplit(trip_coords, split = ";") %>% sapply("[", 1),
@@ -200,7 +341,22 @@ top_trips_july_24 <- top_trips_july_24 %>%
   separate(end_coord, into = c("end_lat", "end_lng"), sep = ":", convert = TRUE)
 ```
 
-```{r drawing routes, echo=FALSE, message=FALSE, warning=FALSE}
+```{r add lat long data in top subscriber directions, include=FALSE}
+#top_subscriber_trips_july_24 <- top_subscriber_trips_july_24 %>%
+top_subscriber_12_months <- top_subscriber_12_months %>%
+  # Create new columns for start and end coordinates
+  mutate(
+    start_coord = strsplit(trip_coords, split = ";") %>% sapply("[", 1),
+    end_coord = strsplit(trip_coords, split = ";") %>% sapply("[", 2)
+  ) %>%
+  # Separate the start and end coordinates into lat and long
+  separate(start_coord, into = c("start_lat", "start_lng"), sep = ":", convert = TRUE) %>%
+  separate(end_coord, into = c("end_lat", "end_lng"), sep = ":", convert = TRUE)
+```
+
+#### Top-10 routes: Customers
+
+```{r top customer directions on the map, echo=FALSE}
 leaflet() %>%
   addTiles() %>% 
   #make it blak&white
@@ -209,54 +365,65 @@ leaflet() %>%
   setView(lng = -87.6298, lat = 41.8781, zoom = 12) %>%
   # Add routes as lines
   addPolylines(
-    lng = c(top_trips_july_24$start_lng, top_trips_july_24$end_lng),
-    lat = c(top_trips_july_24$start_lat, top_trips_july_24$end_lat),
-    group = top_trips_july_24$trip_coords,
+    lng = c(top_customer_12_months$start_lng, top_customer_12_months$end_lng),
+    lat = c(top_customer_12_months$start_lat, top_customer_12_months$end_lat),
+    group = top_customer_12_months$trip_coords,
     color = "darkblue",
-    weight = 3
+    weight = 2
   ) %>%
   # Add markers at the start and end points
   addCircleMarkers(
-    lng = top_trips_july_24$start_lng, 
-    lat = top_trips_july_24$start_lat, 
-    color = "white", 
+    lng = top_customer_12_months$start_lng, 
+    lat = top_customer_12_months$start_lat, 
+    color = "purple", 
     radius = 5 
   ) %>%
   addCircleMarkers(
-    lng = top_trips_july_24$end_lng, 
-    lat = top_trips_july_24$end_lat, 
+    lng = top_customer_12_months$end_lng, 
+    lat = top_customer_12_months$end_lat, 
     color = "blue", 
-    radius = 10
+    radius = 11
   )
-
-``` 
-
-### Longest rides
-```{r longest rides, echo=FALSE}
-longest_rides <- trips_july_24 %>%
-  group_by(member_casual, rideable_type) %>%
-  top_n(1, trip_duration) %>% 
-  ungroup()
-
-longest_rides<- longest_rides %>% 
-  mutate(
-    trip_duration_min= round(as.numeric(trip_duration)/60,0),
-    trip_duration_h = trip_duration_min/60
-  )
-
-longest_rides <- longest_rides %>% 
-  select(member_casual,trip_duration_h, rideable_type, start_day, weekday) %>% 
-  arrange(desc(trip_duration_h))
-
-longest_rides %>% 
-  kable(format = "html", col.names = c("Customer Type", "Trip Duration", "Bike Type", "Start Day", "Weekday")) %>% 
-  kable_paper()
 ```
 
-### Rides activity
+#### Top-10 routes: Subscribers
+
+```{r top subscriber directions on the map, echo=FALSE}
+leaflet() %>%
+  addTiles() %>% 
+  #make it blak&white
+  #addProviderTiles(providers$CartoDB.Positron) %>%
+  # Set initial view to Chicago with appropriate zoom level
+  setView(lng = -87.6298, lat = 41.8781, zoom = 12) %>%
+  # Add routes as lines
+  addPolylines(
+    lng = c(top_subscriber_12_months$start_lng, top_subscriber_12_months$end_lng),
+    lat = c(top_subscriber_12_months$start_lat, top_subscriber_12_months$end_lat),
+    group = top_subscriber_12_months$trip_coords,
+    color = "purple",
+    weight = 2
+  ) %>%
+  # Add markers at the start and end points
+  addCircleMarkers(
+    lng = top_subscriber_12_months$start_lng, 
+    lat = top_subscriber_12_months$start_lat, 
+    color = "red", 
+    radius = 5 
+  ) %>%
+  addCircleMarkers(
+    lng = top_subscriber_12_months$end_lng, 
+    lat = top_subscriber_12_months$end_lat, 
+    color = "blue", 
+    radius = 12
+  )
+```
+
+### Seasonal factor: Rides activity
+
+
 ```{r create days activity statistic, include=FALSE}
-daily_activity <- trips_july_24 %>%
-  group_by(start_day, weekday, rideable_type, member_casual) %>% 
+seasonal_activity <- rides_12_months %>% 
+  group_by(start_day, member_casual, rideable_type) %>% 
   summarise(total_subscriber = sum(member_casual == 'member'),
             total_customer = sum(member_casual == 'casual'),
             total_trips = n())%>%
@@ -264,37 +431,74 @@ daily_activity <- trips_july_24 %>%
 ```
 
 
-```{r show rides statistic, echo=FALSE}
-ggplot(data = daily_activity, aes(x = start_day, y = total_trips, color = member_casual)) +
-  geom_line() +
-  labs(
-    title = "Ride Activity",
-    x = "Day",
-    y = "Rides",
-    color = "Rider Type"
-  ) +
-  theme_minimal()
+#### Rides per week
+Let's figure out how customers use bikes on daily basis
+
+```{r add weekdays, include=FALSE}
+#daily_activity <- trips_july_24 %>%
+seasonal_activity <- seasonal_activity %>% 
+  mutate(weekday = wday(start_day, label = TRUE))
 ```
 
-
-```{r rides by weekday, echo = FALSE}
-
-bike_labels <- c(
-  "classic_bike" = "classic",
-  "electric_bike" = "electric"
-)
-
-ggplot(data = daily_activity) +
-  geom_bar(mapping = aes(x = weekday, y = total_trips, fill = member_casual), position = "dodge", stat = "identity") +
+```{r rides by weekday, echo=FALSE , message=FALSE, warning=FALSE}
+ggplot(data = seasonal_activity) +
+  geom_bar(mapping = aes(x = weekday, y = total_trips, fill = rideable_type), position = "dodge", stat = "identity") +
   labs(
-    x = "day of week",
-    y = "Total rides",
-    fill = "Customer type") +
-  facet_wrap(~rideable_type, labeller = labeller(rideable_type = bike_labels)) +
+    x = NULL,
+    y = NULL,
+    fill = "Rideable type") +
+    facet_wrap(~member_casual)+
   theme_minimal() +
   theme(
     axis.title.x = element_text(size = 10, face = "bold"),
     axis.title.y = element_text(size = 10, face = "bold"),
-    strip.text = element_text(size = 12),
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels
+    strip.text = element_text(size = 12)
   )
 ```
+
+
+
+From the diagram above we can see that customers rides amount frows significantly  by Saturday and Sunday. Customers are using docked bike as well.
+At the same time the middle of the week (Tuesday-Thursday) is the busiest for subscribers.
+
+Now let's check the seasonal factor.
+
+#### Rides per month
+
+```{r adding month-year for grouping, echo=FALSE, message=FALSE, warning=FALSE}
+seasonal_activity <- seasonal_activity%>%
+  mutate(year_month = format(start_day, "%Y-%m")) %>%  # Create a year-month column
+  group_by(year_month, member_casual) %>%  # Group by year-month and rider type
+  summarise(total_trips = sum(total_trips)) %>%  # Sum up the total trips for each year-month
+  ungroup()
+
+seasonal_activity <- seasonal_activity%>%
+  mutate(year_month = as.Date(paste0(year_month, "-01")))
+```
+
+```{r show rides statistic, echo=FALSE, message=FALSE, warning=FALSE}
+
+#Plot the data with ggplot
+ggplot(data = seasonal_activity, aes(x = year_month, y = total_trips, color = member_casual)) +
+  geom_line() +
+  scale_x_date(date_labels = "%m.%Y", date_breaks = "1 month") +  # Format x-axis labels
+  scale_y_continuous(labels = label_number(scale = 1, suffix = "K", big.mark = ",")) +  # Format y-axis labels
+  labs(
+    x = NULL, 
+    y = NULL,
+    color = "Rider Type"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
+
+
+```
+
+
+For sure cycling is a seasonal sport. Subscribers and customers rides amount are growing from spring to the end of summer. Minimum rides are in January (However, they are not 0) and maximum is in July-August (the weather is pretty good).
+
+#### Why would casual riders buy Cyclistic annual memberships?
+
+Opposite to subscribers, who are using bike share on daily basis for commuting, Casual riders may be tourists or occasional users who enjoy leisurely rides in picturesque areas. If Cyclistic can offer incentives (e.g., discounts or exclusive access) for frequent rides along most popular scenic routes, casual riders may see value in purchasing an annual membership, even if they are not daily commuters.
+
