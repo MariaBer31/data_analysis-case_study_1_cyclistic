@@ -21,3 +21,7 @@ Note: The datasets have a different name. For the purposes of this case study I 
 * 202310-divvy-tripdata.csv
 * 202309-divvy-tripdata.csv
 * 202308-divvy-tripdata.csv
+
+
+download bike_share_analysis.html file to preview analysis results, 
+or use bike_share_analysis.rmd file to review analysis steps
